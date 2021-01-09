@@ -7,6 +7,9 @@ import pytz
 import sys
 import pandas as pd
 import pandas_ta as ta
+from pathlib import Path
+from collections import OrderedDict
+import json
 
 #####################################################
 # Algorithmic strategy class for interactive brokers:
@@ -105,7 +108,7 @@ class IBAlgoStrategy(object):
                                      order_ref=instrument.localSymbol + "_sl_" +
                                      str(t.order.orderRef)[-1:],
                                      is_more=t.order.conditions[0].isMore))
-                
+
                 self.log("Saved stops {}".format(stops))
 
                 # Cancel open (unfilled) orders:
@@ -139,6 +142,7 @@ class IBAlgoStrategy(object):
                     i = 4
 
                 # Set compound order offset to be last fill price:
+                # TODO: Shouldn't this be opposite for shorts???
                 last_fill_price = 0
                 for f in self.get_filled_executions(instrument):
                     if f.execution.avgPrice > last_fill_price:
@@ -245,6 +249,22 @@ class IBAlgoStrategy(object):
             self.log('Error in connecting to TWS!! Exiting...')
             self.log(sys.exc_info()[0])
             exit(-1)
+
+#####################################################
+    def get_intitial_entry_prices_from_json(self):
+        this_path = Path(__file__)
+        entry_prices_path = Path(this_path.parent, 'entry_prices.json')
+        with entry_prices_path.open(encoding='utf-8') as entry_prices_file:
+            entry_prices_dict = json.load(entry_prices_file, object_pairs_hook=OrderedDict)
+        self.log(entry_prices_dict)
+        return entry_prices_dict
+
+#####################################################
+    def save_trade_data_to_json(self, instrument, price, direction):
+        entry_prices_dict = self.get_intitial_entry_prices_from_json()
+        entry_prices_dict[str(instrument)][direction] = price
+        with open("entry_prices.json", "w", encoding="utf-8") as f:
+            json.dump(entry_prices_dict, f, indent=4, ensure_ascii=False)
 
 #####################################################
     def log(self, msg=""):
@@ -418,6 +438,7 @@ class IBAlgoStrategy(object):
         last_fill_price = kwargs.get('last_fill_price', None)
         is_exit_all = kwargs.get('is_exit_all', False)
         is_compound_order = kwargs.get('is_compound_order', False)
+        is_initial_entry = kwargs.get('is_initial_entry', False)
         sl_size = kwargs.get('sl_size',
                              self.get_atr_multiple(instrument, indicators))
         total_quantity = kwargs.get('total_quantity',
@@ -460,6 +481,9 @@ class IBAlgoStrategy(object):
             compound_order_ref = "_compound"
             price_condition = last_fill_price \
                 - offset * self.get_atr_multiple(instrument, indicators)
+
+        if is_initial_entry:
+            self.save_initial_entry_price_to_json(instrument.localSymbol, price_condition, "short")
 
         short_entry = self.place_order(instrument=instrument,
                                        order_id=self.ib.client.getReqId(),
@@ -512,6 +536,7 @@ class IBAlgoStrategy(object):
                              self.get_atr_multiple(instrument, indicators))
         is_exit_all = kwargs.get('is_exit_all', False)
         is_compound_order = kwargs.get('is_compound_order', False)
+        is_initial_entry = kwargs.get('is_initial_entry', False)
         total_quantity = kwargs.get('total_quantity',
                                     self.set_position_size(instrument,
                                                            indicators,
@@ -559,6 +584,9 @@ class IBAlgoStrategy(object):
             compound_order_ref = "_compound"
             price_condition = last_fill_price \
                 + offset * self.get_atr_multiple(instrument, indicators)
+
+        if is_initial_entry:
+            self.save_initial_entry_price_to_json(instrument.localSymbol, price_condition, "long")
 
         long_entry = self.place_order(instrument=instrument,
                                       order_id=self.ib.client.getReqId(),
@@ -614,13 +642,15 @@ class IBAlgoStrategy(object):
         long_entry_attempts = self.go_long(instrument,
                                            indicators,
                                            sl_size=sl_size,
-                                           total_quantity=total_quantity)
+                                           total_quantity=total_quantity,
+                                           is_initial_entry=True)
 
         # Create initial short order entries:
         short_entry_attempts = self.go_short(instrument,
                                              indicators,
                                              sl_size=sl_size,
-                                             total_quantity=total_quantity)
+                                             total_quantity=total_quantity,
+                                             is_initial_entry=True)
 
         # Put long and short order entries into OCA:
         self.ib.oneCancelsAll(orders=[long_entry_attempts[0],
@@ -730,7 +760,7 @@ if __name__ == '__main__':
     # Add instruments to trade
     algo.add_instrument('Forex', ticker='GBPJPY', symbol='GBP', currency='JPY')
     algo.add_instrument('Forex', ticker='EURUSD', symbol='EUR', currency='USD')
-    # algo.add_instrument('Forex', ticker='AUDCAD', symbol='AUD', currency='CAD')
+    algo.add_instrument('Forex', ticker='AUDCAD', symbol='AUD', currency='CAD')
 
     # Run for the day
     algo.run()
