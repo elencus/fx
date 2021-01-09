@@ -83,37 +83,57 @@ class IBAlgoStrategy(object):
                 if is_long or is_short:
                     unit_full = False
 
-            # If not long or short, place initial entry orders:
+            # Cancel open orders, since new ones will be placed:
+            for o in self.get_open_trades(instrument):
+                self.ib.cancelOrder(o.order)
+
+            # If not long or short, place initial entry orders and clear json data:
             if not is_long and not is_short:
-                orders = self.get_open_trades(instrument)
-                for o in orders:
-                    self.ib.cancelOrder(o.order)
-                self.place_initial_entry_orders(instrument, indicators)
+
+                # Clear json entry data for this instrument only:
+                entry_dict = self.get_initial_entry_prices_from_json()
+                for i in range(len(entry_dict[instrument.localSymbol])):
+                    entry_dict[instrument.localSymbol][entry_dict[instrument.localSymbol].keys()[i]] = ""
+                with open("entry_data.json", "w", encoding="utf-8") as f:
+                    json.dump(entry_dict, f, indent=4, ensure_ascii=False)
+
+                # Set up initial orders and record to json:
+                initial_orders = self.place_initial_entry_orders(instrument, indicators)
+                for o in initial_orders:
+                    if "long_entry" in o.orderRef:
+                        self.save_order_data_to_json(o, "longEntryA")
+                    elif "long" in o.orderRef and "sl" in o.orderRef:
+                        self.save_order_data_to_json(o, "longSLA")
+                    elif "short_entry" in o.orderRef:
+                        self.save_order_data_to_json(o, "shortEntryA")
+                    elif "short" in o.orderRef and "sl" in o.orderRef:
+                        self.save_order_data_to_json(o, "shortSLA")
+
+                for o in initial_orders:
+                    self.ib.placeOrder(instrument, o)
+                    self.ib.sleep(1)
 
             # If there is a unit that is not full:
             if not unit_full:
 
-                # Save stop information:
+                # Get stop information from json:
                 stops = []
-                for t in self.get_open_trades(instrument):
-                    if "sl" in t.order.orderRef:
+                for order_data in self.get_entry_data_from_json()[instrument.localSymbol]:
+                    for i in order_data:
+                        if i == "":
+                            break
+                    if "sl" in order_data["orderRef"]:
                         stops.append(self.place_order(instrument,
                                      self.ib.client.getReqId(),
-                                     action=t.order.action,
-                                     order_type=t.order.orderType,
-                                     tif=t.order.tif,
-                                     total_quantity=t.order.totalQuantity,
-                                     transmit=t.order.transmit,
-                                     price_condition=t.order.conditions[0].price,
-                                     order_ref=instrument.localSymbol + "_sl_" +
-                                     str(t.order.orderRef)[-1:],
-                                     is_more=t.order.conditions[0].isMore))
-
+                                     action=order_data["action"],
+                                     order_type=order_data["orderType"],
+                                     tif=order_data["tif"],
+                                     total_quantity=order_data["totalQuantity"],
+                                     transmit=order_data["transmit"],
+                                     price_condition=order_data["priceCondition"],
+                                     order_ref=order_data["orderRef"],
+                                     is_more=order_data["isMore"]))
                 self.log("Saved stops {}".format(stops))
-
-                # Cancel open (unfilled) orders:
-                for t in self.get_open_trades(instrument):
-                    self.ib.cancelOrder(t.order)
 
                 # Check how many more entries can be made before unit is full.
                 # i=4 indicates the unit is full.
@@ -141,12 +161,12 @@ class IBAlgoStrategy(object):
                 else:
                     i = 4
 
-                # Set compound order offset to be last fill price:
-                # TODO: Shouldn't this be opposite for shorts???
-                last_fill_price = 0
+                # Find the last fill price, to be used for calculating compound entry prices:
+                entry_executions = []
                 for f in self.get_filled_executions(instrument):
-                    if f.execution.avgPrice > last_fill_price:
-                        last_fill_price = f.execution.avgPrice
+                    if "entry" in f.execution.orderRef:
+                        entry_executions.append(f)
+                last_fill_price = entry_executions[-1]
 
                 # If long (>100 units), place compound long and exit orders:
                 if is_long:
@@ -158,6 +178,21 @@ class IBAlgoStrategy(object):
                                               offset=i,
                                               is_compound_order=True,
                                               last_fill_price=last_fill_price):
+                            # Save compound order data to json for future reference
+                            if "entry" in o.orderRef and i == 1:
+                                self.save_order_data_to_json(o, "compoundEntryB")
+                            elif "entry" in o.orderRef and i == 2:
+                                self.save_order_data_to_json(o, "compoundEntryC")
+                            elif "entry" in o.orderRef and i == 3:
+                                self.save_order_data_to_json(o, "compoundEntryD")
+                            elif "sl" in o.orderRef and i == 1:
+                                self.save_order_data_to_json(o, "compoundSLB")
+                            elif "sl" in o.orderRef and i == 2:
+                                self.save_order_data_to_json(o, "compoundSLC")
+                            elif "sl" in o.orderRef and i == 3:
+                                self.save_order_data_to_json(o, "compoundSLD")
+
+                            # Place Orders
                             self.ib.placeOrder(instrument, o)
                             self.ib.sleep(1)
                         i += 1
@@ -251,20 +286,30 @@ class IBAlgoStrategy(object):
             exit(-1)
 
 #####################################################
-    def get_intitial_entry_prices_from_json(self):
+    def get_entry_data_from_json(self):
         this_path = Path(__file__)
-        entry_prices_path = Path(this_path.parent, 'entry_prices.json')
-        with entry_prices_path.open(encoding='utf-8') as entry_prices_file:
-            entry_prices_dict = json.load(entry_prices_file, object_pairs_hook=OrderedDict)
-        self.log(entry_prices_dict)
-        return entry_prices_dict
+        entry_data_path = Path(this_path.parent, 'entry_prices.json')
+        with entry_data_path.open(encoding='utf-8') as entry_data_file:
+            entry_dict = json.load(entry_data_file, object_pairs_hook=OrderedDict)
+        self.log(entry_dict)
+        return entry_dict
 
 #####################################################
-    def save_trade_data_to_json(self, instrument, price, direction):
-        entry_prices_dict = self.get_intitial_entry_prices_from_json()
-        entry_prices_dict[str(instrument)][direction] = price
-        with open("entry_prices.json", "w", encoding="utf-8") as f:
-            json.dump(entry_prices_dict, f, indent=4, ensure_ascii=False)
+    def save_order_data_to_json(self, order, entry_type):
+        entry_dict = self.get_intitial_entry_prices_from_json()
+        symbol = order.instrument.localSymbol
+        entry_dict[symbol][entry_type]["instrument"] = order.instrument
+        entry_dict[symbol][entry_type]["price"] = order.price
+        entry_dict[symbol][entry_type]["action"] = order.action
+        entry_dict[symbol][entry_type]["orderType"] = order.orderType
+        entry_dict[symbol][entry_type]["tif"] = order.tif
+        entry_dict[symbol][entry_type]["totalQuantity"] = order.totalQuantity
+        entry_dict[symbol][entry_type]["transmit"] = order.transmit
+        entry_dict[symbol][entry_type]["priceCondition"] = order.conditions[0].price
+        entry_dict[symbol][entry_type]["orderRef"] = order.orderRef
+        entry_dict[symbol][entry_type]["isMore"] = order.conditions[0].isMore
+        with open("entry_data.json", "w", encoding="utf-8") as f:
+            json.dump(entry_dict, f, indent=4, ensure_ascii=False)
 
 #####################################################
     def log(self, msg=""):
@@ -438,7 +483,6 @@ class IBAlgoStrategy(object):
         last_fill_price = kwargs.get('last_fill_price', None)
         is_exit_all = kwargs.get('is_exit_all', False)
         is_compound_order = kwargs.get('is_compound_order', False)
-        is_initial_entry = kwargs.get('is_initial_entry', False)
         sl_size = kwargs.get('sl_size',
                              self.get_atr_multiple(instrument, indicators))
         total_quantity = kwargs.get('total_quantity',
@@ -481,9 +525,6 @@ class IBAlgoStrategy(object):
             compound_order_ref = "_compound"
             price_condition = last_fill_price \
                 - offset * self.get_atr_multiple(instrument, indicators)
-
-        if is_initial_entry:
-            self.save_initial_entry_price_to_json(instrument.localSymbol, price_condition, "short")
 
         short_entry = self.place_order(instrument=instrument,
                                        order_id=self.ib.client.getReqId(),
@@ -536,7 +577,6 @@ class IBAlgoStrategy(object):
                              self.get_atr_multiple(instrument, indicators))
         is_exit_all = kwargs.get('is_exit_all', False)
         is_compound_order = kwargs.get('is_compound_order', False)
-        is_initial_entry = kwargs.get('is_initial_entry', False)
         total_quantity = kwargs.get('total_quantity',
                                     self.set_position_size(instrument,
                                                            indicators,
@@ -584,9 +624,6 @@ class IBAlgoStrategy(object):
             compound_order_ref = "_compound"
             price_condition = last_fill_price \
                 + offset * self.get_atr_multiple(instrument, indicators)
-
-        if is_initial_entry:
-            self.save_initial_entry_price_to_json(instrument.localSymbol, price_condition, "long")
 
         long_entry = self.place_order(instrument=instrument,
                                       order_id=self.ib.client.getReqId(),
@@ -642,15 +679,13 @@ class IBAlgoStrategy(object):
         long_entry_attempts = self.go_long(instrument,
                                            indicators,
                                            sl_size=sl_size,
-                                           total_quantity=total_quantity,
-                                           is_initial_entry=True)
+                                           total_quantity=total_quantity)
 
         # Create initial short order entries:
         short_entry_attempts = self.go_short(instrument,
                                              indicators,
                                              sl_size=sl_size,
-                                             total_quantity=total_quantity,
-                                             is_initial_entry=True)
+                                             total_quantity=total_quantity)
 
         # Put long and short order entries into OCA:
         self.ib.oneCancelsAll(orders=[long_entry_attempts[0],
@@ -660,16 +695,13 @@ class IBAlgoStrategy(object):
                               + str(self.ib.client.getReqId()),
                               ocaType=1)
 
-        # Place orders:
+        # Combine and return orders:
         orders = []
         for o in long_entry_attempts:
             orders.append(o)
         for o in short_entry_attempts:
             orders.append(o)
-
-        for o in orders:
-            self.ib.placeOrder(instrument, o)
-            self.ib.sleep(1)
+        return orders
 
 #####################################################
     def place_order(self,
