@@ -1,0 +1,146 @@
+{
+    "EUR.USD": {
+        "longEntryA": {
+            "action": "BUY",
+            "orderType": "MKT",
+            "tif": "GTC",
+            "totalQuantity": 1352157,
+            "transmit": false,
+            "priceCondition": 1.23495,
+            "orderRef": "EUR.USD_long_entry",
+            "isMore": true
+        },
+        "longSLA": {
+            "action": "SELL",
+            "orderType": "MKT",
+            "tif": "GTC",
+            "totalQuantity": 1352157,
+            "transmit": false,
+            "priceCondition": 1.2311,
+            "orderRef": "EUR.USD_long_sl",
+            "isMore": false
+        },
+        "shortEntryA": {
+            "action": "SELL",
+            "orderType": "MKT",
+            "tif": "GTC",
+            "totalQuantity": 1352157,
+            "transmit": false,
+            "priceCondition": 1.16025,
+            "orderRef": "EUR.USD_short_entry",
+            "isMore": false
+        },
+        "shortSLA": {
+            "action": "BUY",
+            "orderType": "MKT",
+            "tif": "GTC",
+            "totalQuantity": 1352157,
+            "transmit": false,
+            "priceCondition": 1.1641,
+            "orderRef": "EUR.USD_short_sl",
+            "isMore": true
+        },
+        "compoundEntryB": "",
+        "compoundSLB": "",
+        "compoundEntryC": "",
+        "compoundSLC": "",
+        "compoundEntryD": "",
+        "compoundSLD": ""
+    },
+    "AUD.CAD": {
+        "longEntryA": {
+            "action": "BUY",
+            "orderType": "MKT",
+            "tif": "GTC",
+            "totalQuantity": 2214480,
+            "transmit": false,
+            "priceCondition": 0.9901000000000001,
+            "orderRef": "AUD.CAD_long_entry",
+            "isMore": true
+        },
+        "longSLA": {
+            "action": "SELL",
+            "orderType": "MKT",
+            "tif": "GTC",
+            "totalQuantity": 2214480,
+            "transmit": false,
+            "priceCondition": 0.9871000000000001,
+            "orderRef": "AUD.CAD_long_sl",
+            "isMore": false
+        },
+        "shortEntryA": {
+            "action": "SELL",
+            "orderType": "MKT",
+            "tif": "GTC",
+            "totalQuantity": 2214480,
+            "transmit": false,
+            "priceCondition": 0.93,
+            "orderRef": "AUD.CAD_short_entry",
+            "isMore": false
+        },
+        "shortSLA": {
+            "action": "BUY",
+            "orderType": "MKT",
+            "tif": "GTC",
+            "totalQuantity": 2214480,
+            "transmit": false,
+            "priceCondition": 0.933,
+            "orderRef": "AUD.CAD_short_sl",
+            "isMore": true
+        },
+        "compoundEntryB": "",
+        "compoundSLB": "",
+        "compoundEntryC": "",
+        "compoundSLC": "",
+        "compoundEntryD": "",
+        "compoundSLD": ""
+    },
+    "GBP.JPY": {
+        "longEntryA": {
+            "action": "BUY",
+            "orderType": "MKT",
+            "tif": "GTC",
+            "totalQuantity": 960121,
+            "transmit": false,
+            "priceCondition": 141.38,
+            "orderRef": "GBP.JPY_long_entry",
+            "isMore": true
+        },
+        "longSLA": {
+            "action": "SELL",
+            "orderType": "MKT",
+            "tif": "GTC",
+            "totalQuantity": 960121,
+            "transmit": false,
+            "priceCondition": 140.815,
+            "orderRef": "GBP.JPY_long_sl",
+            "isMore": false
+        },
+        "shortEntryA": {
+            "action": "SELL",
+            "orderType": "MKT",
+            "tif": "GTC",
+            "totalQuantity": 960121,
+            "transmit": false,
+            "priceCondition": 134.41,
+            "orderRef": "GBP.JPY_short_entry",
+            "isMore": false
+        },
+        "shortSLA": {
+            "action": "BUY",
+            "orderType": "MKT",
+            "tif": "GTC",
+            "totalQuantity": 960121,
+            "transmit": false,
+            "priceCondition": 134.975,
+            "orderRef": "GBP.JPY_short_sl",
+            "isMore": true
+        },
+        "compoundEntryB": "",
+        "compoundSLB": "",
+        "compoundEntryC": "",
+        "compoundSLC": "",
+        "compoundEntryD": "",
+        "compoundSLD": ""
+    }
+}

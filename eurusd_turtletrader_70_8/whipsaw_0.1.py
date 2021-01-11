@@ -49,6 +49,8 @@ class IBAlgoStrategy(object):
 
         for instrument in self.instruments:
 
+            self.log("Instrument conId = {}".format(instrument.conId))
+
             # INITIAL VARIABLE SETUP
             # Indicators
             indicators = self.get_indicators(instrument)
@@ -91,13 +93,13 @@ class IBAlgoStrategy(object):
             if not is_long and not is_short:
 
                 # Clear json entry data for this instrument only:
-                entry_dict = self.get_initial_entry_prices_from_json()
-                for i in range(len(entry_dict[instrument.localSymbol])):
-                    entry_dict[instrument.localSymbol][entry_dict[instrument.localSymbol].keys()[i]] = ""
+                entry_dict = self.get_entry_data_from_json()
+                for entry in entry_dict[instrument.localSymbol]:
+                    entry_dict[instrument.localSymbol][entry] = ""
                 with open("entry_data.json", "w", encoding="utf-8") as f:
                     json.dump(entry_dict, f, indent=4, ensure_ascii=False)
 
-                # Set up initial orders and record to json:
+                # Set up initial orders and record to json: 
                 initial_orders = self.place_initial_entry_orders(instrument, indicators)
                 for o in initial_orders:
                     if "long_entry" in o.orderRef:
@@ -288,7 +290,7 @@ class IBAlgoStrategy(object):
 #####################################################
     def get_entry_data_from_json(self):
         this_path = Path(__file__)
-        entry_data_path = Path(this_path.parent, 'entry_prices.json')
+        entry_data_path = Path(this_path.parent, 'entry_data.json')
         with entry_data_path.open(encoding='utf-8') as entry_data_file:
             entry_dict = json.load(entry_data_file, object_pairs_hook=OrderedDict)
         self.log(entry_dict)
@@ -296,18 +298,19 @@ class IBAlgoStrategy(object):
 
 #####################################################
     def save_order_data_to_json(self, order, entry_type):
-        entry_dict = self.get_intitial_entry_prices_from_json()
-        symbol = order.instrument.localSymbol
-        entry_dict[symbol][entry_type]["instrument"] = order.instrument
-        entry_dict[symbol][entry_type]["price"] = order.price
-        entry_dict[symbol][entry_type]["action"] = order.action
-        entry_dict[symbol][entry_type]["orderType"] = order.orderType
-        entry_dict[symbol][entry_type]["tif"] = order.tif
-        entry_dict[symbol][entry_type]["totalQuantity"] = order.totalQuantity
-        entry_dict[symbol][entry_type]["transmit"] = order.transmit
-        entry_dict[symbol][entry_type]["priceCondition"] = order.conditions[0].price
-        entry_dict[symbol][entry_type]["orderRef"] = order.orderRef
-        entry_dict[symbol][entry_type]["isMore"] = order.conditions[0].isMore
+        entry_dict = self.get_entry_data_from_json()
+        symbol = order.orderRef[:7]
+        # entry_dict[symbol][entry_type]["instrument"] = order.contract
+        updated_entry = {}
+        updated_entry["action"] = order.action
+        updated_entry["orderType"] = order.orderType
+        updated_entry["tif"] = order.tif
+        updated_entry["totalQuantity"] = order.totalQuantity
+        updated_entry["transmit"] = order.transmit
+        updated_entry["priceCondition"] = order.conditions[0].price
+        updated_entry["orderRef"] = order.orderRef
+        updated_entry["isMore"] = order.conditions[0].isMore
+        entry_dict[symbol][entry_type] = updated_entry
         with open("entry_data.json", "w", encoding="utf-8") as f:
             json.dump(entry_dict, f, indent=4, ensure_ascii=False)
 
