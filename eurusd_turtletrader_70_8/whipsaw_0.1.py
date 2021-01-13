@@ -48,9 +48,7 @@ class IBAlgoStrategy(object):
                  .format(start_time))
 
         for instrument in self.instruments:
-
-            self.log("Instrument conId = {}".format(instrument.conId))
-
+            self.log("(1) Starting initial variable setup.")
             # INITIAL VARIABLE SETUP
             # Indicators
             indicators = self.get_indicators(instrument)
@@ -84,22 +82,37 @@ class IBAlgoStrategy(object):
                max_unit_size:
                 if is_long or is_short:
                     unit_full = False
+            self.log("Finished initial variable setup.")
 
+            self.log("(2) Cancelling open orders.")
             # Cancel open orders, since new ones will be placed:
             for o in self.get_open_trades(instrument):
                 self.ib.cancelOrder(o.order)
+            self.log("Finished cancelling open orders.")
 
             # If not long or short, place initial entry orders and clear json data:
+            self.log("(3) Checking if long, short, or no current position.")
             if not is_long and not is_short:
-
+                self.log("(4) No current position found. Clearing json data.")
                 # Clear json entry data for this instrument only:
                 entry_dict = self.get_entry_data_from_json()
                 for entry in entry_dict[instrument.localSymbol]:
-                    entry_dict[instrument.localSymbol][entry] = ""
+                    entry_dict[instrument.localSymbol][entry] = {
+                        "action": "",
+                        "orderType": "",
+                        "tif": "",
+                        "totalQuantity": 0,
+                        "transmit": False,
+                        "priceCondition": 0,
+                        "orderRef": "",
+                        "isMore": True
+                    }
                 with open("entry_data.json", "w", encoding="utf-8") as f:
                     json.dump(entry_dict, f, indent=4, ensure_ascii=False)
+                self.log("Finished clearing json data.")
 
-                # Set up initial orders and record to json: 
+                # Set up initial orders and record to json:
+                self.log("(5) Placing initial entry orders.") 
                 initial_orders = self.place_initial_entry_orders(instrument, indicators)
                 for o in initial_orders:
                     if "long_entry" in o.orderRef:
@@ -114,29 +127,11 @@ class IBAlgoStrategy(object):
                 for o in initial_orders:
                     self.ib.placeOrder(instrument, o)
                     self.ib.sleep(1)
+                self.log("Finished placing initial entry orders")
 
             # If there is a unit that is not full:
-            if not unit_full:
-
-                # Get stop information from json:
-                stops = []
-                for order_data in self.get_entry_data_from_json()[instrument.localSymbol]:
-                    for i in order_data:
-                        if i == "":
-                            break
-                    if "sl" in order_data["orderRef"]:
-                        stops.append(self.place_order(instrument,
-                                     self.ib.client.getReqId(),
-                                     action=order_data["action"],
-                                     order_type=order_data["orderType"],
-                                     tif=order_data["tif"],
-                                     total_quantity=order_data["totalQuantity"],
-                                     transmit=order_data["transmit"],
-                                     price_condition=order_data["priceCondition"],
-                                     order_ref=order_data["orderRef"],
-                                     is_more=order_data["isMore"]))
-                self.log("Saved stops {}".format(stops))
-
+            elif not unit_full:
+                self.log("(4) Found position that is not a full unit. Checking how many more orders can be placed.")
                 # Check how many more entries can be made before unit is full.
                 # i=4 indicates the unit is full.
                 if abs(self.get_cash_balance(instrument)
@@ -162,43 +157,69 @@ class IBAlgoStrategy(object):
                     i = 3
                 else:
                     i = 4
+                self.log("Found that {} more orders can be placed".format(4-i))
 
+                # Get stop information from json:
+                self.log("(5) Searching json for cancelled stoplosses that need to be replaced.")
+                stops = []
+                for count, order_type in enumerate(self.get_entry_data_from_json()[instrument.localSymbol]):
+                    if "sl" in self.get_entry_data_from_json()[instrument.localSymbol][order_type]["orderRef"]:
+                        if is_long and not "long" in self.get_entry_data_from_json()[instrument.localSymbol][order_type]["orderRef"]:
+                            break
+                        elif is_short and not "short" in self.get_entry_data_from_json()[instrument.localSymbol][order_type]["orderRef"]:
+                            break
+                        elif count < (i + 2):
+                            stops.append({"instrument": instrument,
+                                          "action": self.get_entry_data_from_json()[instrument.localSymbol][order_type]["action"],
+                                          "order_type": self.get_entry_data_from_json()[instrument.localSymbol][order_type]["orderType"],
+                                          "tif": self.get_entry_data_from_json()[instrument.localSymbol][order_type]["tif"],
+                                          "total_quantity": self.get_entry_data_from_json()[instrument.localSymbol][order_type]["totalQuantity"],
+                                          "transmit": self.get_entry_data_from_json()[instrument.localSymbol][order_type]["transmit"],
+                                          "price_condition": self.get_entry_data_from_json()[instrument.localSymbol][order_type]["priceCondition"],
+                                          "order_ref": self.get_entry_data_from_json()[instrument.localSymbol][order_type]["orderRef"],
+                                          "is_more": self.get_entry_data_from_json()[instrument.localSymbol][order_type]["isMore"]})
+                self.log("Found {} stops that need to be replaced: {}".format(len(stops), stops))
+
+                self.log("(6) Looking for the last fill price, in order to calculate compound entry prices")
                 # Find the last fill price, to be used for calculating compound entry prices:
                 entry_executions = []
                 for f in self.get_filled_executions(instrument):
                     if "entry" in f.execution.orderRef:
                         entry_executions.append(f)
-                last_fill_price = entry_executions[-1]
+                last_fill_price = entry_executions[-1].execution.avgPrice
+                self.log("Found the last fill price was {}".format(last_fill_price))
 
                 # If long (>100 units), place compound long and exit orders:
                 if is_long:
+                    self.log("(7) Currently long. Placing compound orders.")
 
                     # Create compound orders
-                    while i < 4:
+                    while i <= 4:
                         for o in self.go_long(instrument,
                                               indicators,
                                               offset=i,
                                               is_compound_order=True,
                                               last_fill_price=last_fill_price):
                             # Save compound order data to json for future reference
-                            if "entry" in o.orderRef and i == 1:
+                            if "entry" in o.orderRef and i == 2:
                                 self.save_order_data_to_json(o, "compoundEntryB")
-                            elif "entry" in o.orderRef and i == 2:
-                                self.save_order_data_to_json(o, "compoundEntryC")
                             elif "entry" in o.orderRef and i == 3:
+                                self.save_order_data_to_json(o, "compoundEntryC")
+                            elif "entry" in o.orderRef and i == 4:
                                 self.save_order_data_to_json(o, "compoundEntryD")
-                            elif "sl" in o.orderRef and i == 1:
-                                self.save_order_data_to_json(o, "compoundSLB")
                             elif "sl" in o.orderRef and i == 2:
-                                self.save_order_data_to_json(o, "compoundSLC")
+                                self.save_order_data_to_json(o, "compoundSLB")
                             elif "sl" in o.orderRef and i == 3:
+                                self.save_order_data_to_json(o, "compoundSLC")
+                            elif "sl" in o.orderRef and i == 4:
                                 self.save_order_data_to_json(o, "compoundSLD")
 
                             # Place Orders
                             self.ib.placeOrder(instrument, o)
                             self.ib.sleep(1)
                         i += 1
-
+                    self.log("Finished placing compound orders.")
+                    self.log("(8) Placing exit-all order, and stops saved from json.")
                     # Create exit order
                     long_exit_all = self.go_long(instrument,
                                                  indicators,
@@ -207,10 +228,19 @@ class IBAlgoStrategy(object):
 
                     # Put all stops and exit orders into an OCA:
                     oca = []
-                    for s in stops:
-                        oca.append(s)
                     for o in long_exit_all:
                         oca.append(o)
+                    for s in stops:
+                        oca.append(self.place_order(s["instrument"],
+                                                    self.ib.client.getReqId(),
+                                                    action=s["action"],
+                                                    order_type=s["order_type"],
+                                                    tif=s["tif"],
+                                                    total_quantity=s["total_quantity"],
+                                                    transmit=s["transmit"],
+                                                    price_condition=s["price_condition"],
+                                                    order_ref=s["order_ref"],
+                                                    is_more=s["is_more"]))
                     self.ib.oneCancelsAll(orders=oca,
                                           ocaGroup="OCA_"
                                           + str(instrument.localSymbol)
@@ -219,11 +249,14 @@ class IBAlgoStrategy(object):
 
                     # Place all orders:
                     for o in oca:
+                        self.log("Placing order {}: {}".format(o.orderId, o.orderRef))
                         self.ib.placeOrder(instrument, o)
                         self.ib.sleep(1)
+                    self.log("Finished placing exit-all and stop orders.")
 
                 # If short (<100 units), place compound short and exit orders:
                 elif is_short:
+                    self.log("(7) Currently short. Placing compound orders.")
                     # Create compound orders
                     while i < 4:
                         for o in self.go_short(instrument,
@@ -234,7 +267,8 @@ class IBAlgoStrategy(object):
                             self.ib.placeOrder(instrument, o)
                             self.ib.sleep(1)
                         i += 1
-
+                    self.log("Finished placing compound orders.")
+                    self.log("(8) Placing exit-all order, and stops saved from json.")
                     # Create exit order
                     short_exit_all = self.go_short(instrument,
                                                    indicators,
@@ -257,6 +291,7 @@ class IBAlgoStrategy(object):
                     for o in oca:
                         self.ib.placeOrder(instrument, o)
                         self.ib.sleep(1)
+                    self.log("Finished placing exit-all and stop orders.")
 
             # VARIABLES USED IN LOGGING ONLY
             # Current total unit size in base currency.
@@ -293,7 +328,6 @@ class IBAlgoStrategy(object):
         entry_data_path = Path(this_path.parent, 'entry_data.json')
         with entry_data_path.open(encoding='utf-8') as entry_data_file:
             entry_dict = json.load(entry_data_file, object_pairs_hook=OrderedDict)
-        self.log(entry_dict)
         return entry_dict
 
 #####################################################
@@ -374,8 +408,6 @@ class IBAlgoStrategy(object):
                 available_funds = float(account_values[i].value)
                 break
             i += 1
-        self.log('Available funds: {} {}'.format(available_funds,
-                                                 account_values[i].currency))
         return available_funds
 
 #####################################################
@@ -390,8 +422,6 @@ class IBAlgoStrategy(object):
                 cash_balance = float(account_values[i].value)
                 break
             i += 1
-        self.log("Current {} cash balance: {} units"
-                 .format(instrument.localSymbol[0:3], cash_balance))
         return cash_balance
 
 #####################################################
@@ -410,8 +440,6 @@ class IBAlgoStrategy(object):
             return 1
         elif instrument.localSymbol[-3:] != 'USD':
             pair = base + instrument.localSymbol[-3:]
-            self.log("Getting current exchange rate for pair {}".format(pair))
-
             ticker = self.ib.reqMktData(contract=Forex(pair=pair,
                                                        symbol=base,
                                                        currency=instrument
@@ -600,13 +628,6 @@ class IBAlgoStrategy(object):
         orders = []
 
         if is_exit_all:
-            self.log("Placing exit order for complete unit! Parameters:")
-            self.log("Total quantity = {}, \
-                     price condition = {}, order ref = {}"
-                     .format(total_quantity,
-                             long_exit_condition,
-                             str(instrument.localSymbol +
-                                 "_long_exit_all")))
             orders.append(self.place_order(instrument,
                           self.ib.client.getReqId(),
                           action="SELL",
