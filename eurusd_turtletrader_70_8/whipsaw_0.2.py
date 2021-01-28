@@ -217,8 +217,16 @@ class IBAlgoStrategy(object):
                     and exit orders for filled entries.")
                 unit_data = self.get_data_from_json()[local_symbol]
                 exit_price_condition = unit_data["unitInfo"]["exitAllPrice"]
-                for i in range(4 - remaining_orders):
-                    entry_data = unit_data["entryData"].items()[i]
+                for i in range(3 - remaining_orders):
+                    assert (i < 3), "There cannot be 4+ compound orders!"
+                    entry_data = None
+                    if i == 0:
+                        entry_data = unit_data["entryInfo"]["entryB"]
+                    elif i == 1:
+                        entry_data = unit_data["entryInfo"]["entryC"]
+                    elif i == 2:
+                        entry_data = unit_data["entryInfo"]["entryD"]
+                    self.log("i = {}, Entry data: {}".format(i, entry_data))
                     sl_price_condition = entry_data["slPrice"]
                     total_quantity = entry_data["totalQuantity"]
                     order_type = entry_data["orderType"]
@@ -278,8 +286,11 @@ class IBAlgoStrategy(object):
                     compound_order_json_tags.append("entryC")
                 elif remaining_orders == 3:
                     compound_order_json_tags.append("entryD")
-                self.generate_compound_entry_info(instrument,
-                                                  compound_order_json_tags)
+                for o in self.generate_compound_entry_info(instrument,
+                                                           compound_order_json_tags):
+                    # TODO: Save data to json
+                    pass
+                
                 self.log("Finished creating json data for compound orders.")
 
                 self.log("(10) Creating and placing compound orders")
@@ -339,7 +350,7 @@ class IBAlgoStrategy(object):
             action = None
             is_more = None
             if is_long:
-                price_condition = last_entry["priceCondition"] \
+                price_condition = last_entry["priceCondition"][0] \
                     + offset * self.get_atr_multiple(instrument)
                 sl_price = price_condition - sl_size
                 action = "BUY"
@@ -664,6 +675,7 @@ class IBAlgoStrategy(object):
                     "sl_order": sl_order,
                     "exit_order": exit_order
                 }
+        self.log("ORDER TYPE WAS {}".format(order_type))
         return orders
 
 ####################################################
