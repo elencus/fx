@@ -1,146 +1,254 @@
 {
     "EUR.USD": {
-        "longEntryA": {
-            "action": "BUY",
-            "orderType": "MKT",
-            "tif": "GTC",
-            "totalQuantity": 1352157,
-            "transmit": false,
-            "priceCondition": 1.23495,
-            "orderRef": "EUR.USD_long_entry",
-            "isMore": true
+        "unitInfo": {
+            "maxUnitSize": 4657122.442987378,
+            "currentUnitSize": 0,
+            "exitAllPrice": 0,
+            "isLong": "",
+            "isShort": "",
+            "slSize": 0.00365,
+            "baseExchange": 1.209985,
+            "longEntry": {
+                "action": "BUY",
+                "orderType": "MKT",
+                "tif": "GTC",
+                "totalQuantity": 1164281,
+                "transmit": false,
+                "priceCondition": 1.23495,
+                "orderRef": "EUR.USDentryA",
+                "isMore": true,
+                "slPrice": 1.2313
+            },
+            "shortEntry": {
+                "action": "SELL",
+                "orderType": "MKT",
+                "tif": "GTC",
+                "totalQuantity": 1164281,
+                "transmit": false,
+                "priceCondition": 1.17455,
+                "orderRef": "EUR.USDentryA",
+                "isMore": false,
+                "slPrice": 1.1782
+            }
         },
-        "longSLA": {
-            "action": "SELL",
-            "orderType": "MKT",
-            "tif": "GTC",
-            "totalQuantity": 1352157,
-            "transmit": false,
-            "priceCondition": 1.2311,
-            "orderRef": "EUR.USD_long_sl",
-            "isMore": false
-        },
-        "shortEntryA": {
-            "action": "SELL",
-            "orderType": "MKT",
-            "tif": "GTC",
-            "totalQuantity": 1352157,
-            "transmit": false,
-            "priceCondition": 1.16025,
-            "orderRef": "EUR.USD_short_entry",
-            "isMore": false
-        },
-        "shortSLA": {
-            "action": "BUY",
-            "orderType": "MKT",
-            "tif": "GTC",
-            "totalQuantity": 1352157,
-            "transmit": false,
-            "priceCondition": 1.1641,
-            "orderRef": "EUR.USD_short_sl",
-            "isMore": true
-        },
-        "compoundEntryB": "",
-        "compoundSLB": "",
-        "compoundEntryC": "",
-        "compoundSLC": "",
-        "compoundEntryD": "",
-        "compoundSLD": ""
-    },
-    "AUD.CAD": {
-        "longEntryA": {
-            "action": "BUY",
-            "orderType": "MKT",
-            "tif": "GTC",
-            "totalQuantity": 2214480,
-            "transmit": false,
-            "priceCondition": 0.9901000000000001,
-            "orderRef": "AUD.CAD_long_entry",
-            "isMore": true
-        },
-        "longSLA": {
-            "action": "SELL",
-            "orderType": "MKT",
-            "tif": "GTC",
-            "totalQuantity": 2214480,
-            "transmit": false,
-            "priceCondition": 0.9871000000000001,
-            "orderRef": "AUD.CAD_long_sl",
-            "isMore": false
-        },
-        "shortEntryA": {
-            "action": "SELL",
-            "orderType": "MKT",
-            "tif": "GTC",
-            "totalQuantity": 2214480,
-            "transmit": false,
-            "priceCondition": 0.93,
-            "orderRef": "AUD.CAD_short_entry",
-            "isMore": false
-        },
-        "shortSLA": {
-            "action": "BUY",
-            "orderType": "MKT",
-            "tif": "GTC",
-            "totalQuantity": 2214480,
-            "transmit": false,
-            "priceCondition": 0.933,
-            "orderRef": "AUD.CAD_short_sl",
-            "isMore": true
-        },
-        "compoundEntryB": "",
-        "compoundSLB": "",
-        "compoundEntryC": "",
-        "compoundSLC": "",
-        "compoundEntryD": "",
-        "compoundSLD": ""
+        "entryInfo": {
+            "entryA": {
+                "action": "",
+                "orderType": "",
+                "tif": "",
+                "totalQuantity": 0,
+                "transmit": false,
+                "priceCondition": 0,
+                "orderRef": "",
+                "isMore": false,
+                "slPrice": 0
+            },
+            "entryB": {
+                "action": "",
+                "orderType": "",
+                "tif": "",
+                "totalQuantity": 0,
+                "transmit": false,
+                "priceCondition": 0,
+                "orderRef": "",
+                "isMore": false,
+                "slPrice": 0
+            },
+            "entryC": {
+                "action": "",
+                "orderType": "",
+                "tif": "",
+                "totalQuantity": 0,
+                "transmit": false,
+                "priceCondition": 0,
+                "orderRef": "",
+                "isMore": false,
+                "slPrice": 0
+            },
+            "entryD": {
+                "action": "",
+                "orderType": "",
+                "tif": "",
+                "totalQuantity": 0,
+                "transmit": false,
+                "priceCondition": 0,
+                "orderRef": "",
+                "isMore": false,
+                "slPrice": 0
+            }
+        }
     },
     "GBP.JPY": {
-        "longEntryA": {
+        "unitInfo": {
+            "maxUnitSize": 4290819.079258164,
+            "currentUnitSize": 0,
+            "exitAllPrice": 139.51500000000001,
+            "isLong": true,
+            "isShort": "",
+            "slSize": 0.5,
+            "baseExchange": 0.00958694641376302,
+            "longEntry": {
+                "action": "BUY",
+                "orderType": "MKT",
+                "tif": "GTC",
+                "totalQuantity": 1072705,
+                "transmit": false,
+                "priceCondition": 142.865,
+                "orderRef": "GBP.JPYentryA",
+                "isMore": true,
+                "slPrice": 142.365
+            },
+            "shortEntry": {
+                "action": "SELL",
+                "orderType": "MKT",
+                "tif": "GTC",
+                "totalQuantity": 1072705,
+                "transmit": false,
+                "priceCondition": 136.79,
+                "orderRef": "GBP.JPYentryA",
+                "isMore": false,
+                "slPrice": 137.29
+            }
+        },
+        "entryInfo": {
+            "entryA": {
+                "action": "BUY",
+                "orderType": "MKT",
+                "tif": "GTC",
+                "totalQuantity": 1051398,
+                "transmit": false,
+                "priceCondition": [
+                    142.5
+                ],
+                "orderRef": "GBP.JPYentryA",
+                "isMore": true,
+                "slPrice": 141.995
+            },
+            "entryB": {
+                "action": "",
+                "orderType": "",
+                "tif": "",
+                "totalQuantity": 0,
+                "transmit": false,
+                "priceCondition": 0,
+                "orderRef": "",
+                "isMore": false,
+                "slPrice": 0
+            },
+            "entryC": {
+                "action": "",
+                "orderType": "",
+                "tif": "",
+                "totalQuantity": 0,
+                "transmit": false,
+                "priceCondition": 0,
+                "orderRef": "",
+                "isMore": false,
+                "slPrice": 0
+            },
+            "entryD": {
+                "action": "",
+                "orderType": "",
+                "tif": "",
+                "totalQuantity": 0,
+                "transmit": false,
+                "priceCondition": 0,
+                "orderRef": "",
+                "isMore": false,
+                "slPrice": 0
+            }
+        },
+        "entryA": {
             "action": "BUY",
             "orderType": "MKT",
             "tif": "GTC",
-            "totalQuantity": 960121,
+            "totalQuantity": 1051398,
             "transmit": false,
-            "priceCondition": 141.38,
-            "orderRef": "GBP.JPY_long_entry",
-            "isMore": true
+            "priceCondition": [
+                142.5
+            ],
+            "orderRef": "GBP.JPYentryA",
+            "isMore": true,
+            "slPrice": 141.995
+        }
+    },
+    "AUD.CAD": {
+        "unitInfo": {
+            "maxUnitSize": 10028568.109107388,
+            "currentUnitSize": 0,
+            "exitAllPrice": 0,
+            "isLong": "",
+            "isShort": "",
+            "slSize": 0.0027,
+            "baseExchange": 0.7596050000000001,
+            "longEntry": {
+                "action": "BUY",
+                "orderType": "MKT",
+                "tif": "GTC",
+                "totalQuantity": 2507142,
+                "transmit": false,
+                "priceCondition": 0.9901000000000001,
+                "orderRef": "AUD.CADentryA",
+                "isMore": true,
+                "slPrice": 0.9874
+            },
+            "shortEntry": {
+                "action": "SELL",
+                "orderType": "MKT",
+                "tif": "GTC",
+                "totalQuantity": 2507142,
+                "transmit": false,
+                "priceCondition": 0.9457500000000001,
+                "orderRef": "AUD.CADentryA",
+                "isMore": false,
+                "slPrice": 0.9484500000000001
+            }
         },
-        "longSLA": {
-            "action": "SELL",
-            "orderType": "MKT",
-            "tif": "GTC",
-            "totalQuantity": 960121,
-            "transmit": false,
-            "priceCondition": 140.815,
-            "orderRef": "GBP.JPY_long_sl",
-            "isMore": false
-        },
-        "shortEntryA": {
-            "action": "SELL",
-            "orderType": "MKT",
-            "tif": "GTC",
-            "totalQuantity": 960121,
-            "transmit": false,
-            "priceCondition": 134.41,
-            "orderRef": "GBP.JPY_short_entry",
-            "isMore": false
-        },
-        "shortSLA": {
-            "action": "BUY",
-            "orderType": "MKT",
-            "tif": "GTC",
-            "totalQuantity": 960121,
-            "transmit": false,
-            "priceCondition": 134.975,
-            "orderRef": "GBP.JPY_short_sl",
-            "isMore": true
-        },
-        "compoundEntryB": "",
-        "compoundSLB": "",
-        "compoundEntryC": "",
-        "compoundSLC": "",
-        "compoundEntryD": "",
-        "compoundSLD": ""
+        "entryInfo": {
+            "entryA": {
+                "action": "",
+                "orderType": "",
+                "tif": "",
+                "totalQuantity": 0,
+                "transmit": false,
+                "priceCondition": 0,
+                "orderRef": "",
+                "isMore": false,
+                "slPrice": 0
+            },
+            "entryB": {
+                "action": "",
+                "orderType": "",
+                "tif": "",
+                "totalQuantity": 0,
+                "transmit": false,
+                "priceCondition": 0,
+                "orderRef": "",
+                "isMore": false,
+                "slPrice": 0
+            },
+            "entryC": {
+                "action": "",
+                "orderType": "",
+                "tif": "",
+                "totalQuantity": 0,
+                "transmit": false,
+                "priceCondition": 0,
+                "orderRef": "",
+                "isMore": false,
+                "slPrice": 0
+            },
+            "entryD": {
+                "action": "",
+                "orderType": "",
+                "tif": "",
+                "totalQuantity": 0,
+                "transmit": false,
+                "priceCondition": 0,
+                "orderRef": "",
+                "isMore": false,
+                "slPrice": 0
+            }
+        }
     }
 }

@@ -50,24 +50,30 @@ class IBAlgoStrategy(object):
         for instrument in self.instruments:
             # Initial variable setup:
             local_symbol = instrument.localSymbol
-            self.log('(1) Running initial variable setup for {}'.format(instrument.localSymbol))
+            self.log('(1) Running initial variable setup for {}'
+                     .format(instrument.localSymbol))
 
             # Get indicators
             indicators = self.get_indicators(instrument)
 
             # Init vars related to position sizing.
-            max_equity_at_risk = self.get_max_equity_at_risk()
             base_exchange = self.get_base_exchange(instrument)
+            max_equity_at_risk = self.get_max_equity_at_risk() / base_exchange
             sl_size = self.get_atr_multiple(instrument, multiplier=0.5)
-            max_unit_size = max_equity_at_risk / (sl_size * base_exchange)
+            max_unit_size = max_equity_at_risk / sl_size
+            self.log("Max equity at risk = {} units of {}"
+                     .format(max_equity_at_risk, local_symbol))
+            self.log("Max equity at risk = {} units of USD"
+                     .format(max_equity_at_risk * base_exchange))
+            self.log("Max unit size = {} units of {}"
+                     .format(max_unit_size, local_symbol))
 
             # Init vars related to current unit/position.
-            # All vars are in BASE currency!
+            # All vars are in LOCAL currency!
             is_short = False
             is_long = False
             unit_full = True
-            current_unit_size = self.get_cash_balance(instrument) \
-                * base_exchange
+            current_unit_size = self.get_cash_balance(instrument)
             if current_unit_size > float(100):
                 is_long = True
             if current_unit_size < float(-100):
@@ -75,6 +81,13 @@ class IBAlgoStrategy(object):
             if abs(current_unit_size) < abs(max_unit_size) and (is_long
                                                                 or is_short):
                 unit_full = False
+
+            # Save unit info to json:
+            self.save_unit_info_to_json(local_symbol=local_symbol,
+                                        max_unit_size=max_unit_size,
+                                        current_unit_size=current_unit_size,
+                                        sl_size=sl_size,
+                                        base_exchange=base_exchange)
 
             self.log('Finished initial variable setup for {}'
                      .format(local_symbol))
@@ -99,8 +112,6 @@ class IBAlgoStrategy(object):
                 long_entry = initial_entry_info["long_entry"]
                 short_entry = initial_entry_info["short_entry"]
                 self.save_unit_info_to_json(local_symbol=local_symbol,
-                                            max_unit_size=max_unit_size,
-                                            current_unit_size=current_unit_size,
                                             long_entry=long_entry,
                                             short_entry=short_entry)
                 self.log("Finished creating new unit json data for {}"
@@ -147,6 +158,8 @@ class IBAlgoStrategy(object):
                          initial entry data if needed")
                 self.save_unit_info_to_json(local_symbol=local_symbol,
                                             current_unit_size=current_unit_size,
+                                            base_exchange=base_exchange,
+                                            sl_size=sl_size,
                                             is_short=is_short,
                                             is_long=is_long,
                                             exit_all_price=exit_all_price)
@@ -156,9 +169,10 @@ class IBAlgoStrategy(object):
                 if unit_data["entryInfo"]["entryA"]["totalQuantity"] == 0:
                     self.log("Current unit has been identified as new. Updating \
                              initial entry json data")
-                    entry_a = unit_data["longEntry"] if is_long \
-                        else unit_data["shortEntry"]
-                    self.save_order_data_to_json(order_json_tag="entryA",
+                    entry_a = unit_data["unitInfo"]["longEntry"] if is_long \
+                        else unit_data["unitInfo"]["shortEntry"]
+                    self.save_order_data_to_json(local_symbol=local_symbol,
+                                                 order_json_tag="entryA",
                                                  action=entry_a["action"],
                                                  total_quantity=entry_a
                                                  ["totalQuantity"],
@@ -176,16 +190,19 @@ class IBAlgoStrategy(object):
                              to be updated.")
 
                 self.log("(6) Cancelling previously placed orders")
-                for o in self.get_open_trades():
-                    self.ib.cancelOrder(o)
+                for o in self.get_open_trades(instrument):
+                    self.ib.cancelOrder(o.order)
                 self.log("Finished cancelling open orders")
 
                 self.log("(7) Calculating remaining compound orders \
                          before unit becomes full.")
-                remaining_orders = 0
+                remaining_orders = None
                 current_unit_size = unit_data["unitInfo"]["currentUnitSize"]
                 max_unit_size = unit_data["unitInfo"]["maxUnitSize"]
                 max_entry_size = max_unit_size / 4
+                self.log("current unit: {}".format(current_unit_size))
+                self.log("max unit: {}".format(max_unit_size))
+                self.log("max entry: {}".format(max_entry_size))
                 remaining_orders = round((max_unit_size - current_unit_size)
                                          / max_entry_size)
                 assert (remaining_orders < 4), \
@@ -353,9 +370,7 @@ class IBAlgoStrategy(object):
         """Generates initial entry information that can be saved to json."""
         indicators = self.get_indicators(instrument)
         sl_size = self.get_atr_multiple(instrument)
-        total_quantity = self.set_position_size(instrument,
-                                                indicators,
-                                                sl_size)
+        total_quantity = self.set_position_size(instrument)
         long_price_condition = \
             self.adjust_for_price_increments(instrument,
                                              indicators
@@ -413,10 +428,10 @@ class IBAlgoStrategy(object):
         assert (order_ref != ""), "Order reference cannot be blank."
 
         data_dict = self.get_data_from_json()
-        assert (order_json_tag in data_dict[local_symbol]), \
+        assert (order_json_tag in data_dict[local_symbol]["entryInfo"]), \
             "Incorrect json tag passed."
 
-        order_info = data_dict[local_symbol][order_json_tag]
+        order_info = data_dict[local_symbol]["entryInfo"][order_json_tag]
         order_info["action"] = action
         order_info["orderType"] = order_type
         order_info["tif"] = tif
@@ -453,6 +468,8 @@ class IBAlgoStrategy(object):
         is_long = kwargs.get('is_long', False)
         long_entry = kwargs.get('long_entry', False)
         short_entry = kwargs.get('short_entry', False)
+        sl_size = kwargs.get('sl_size', False)
+        base_exchange = kwargs.get('base_exchange', False)
 
         data_dict = self.get_data_from_json()
         unit_info = data_dict[local_symbol]["unitInfo"]
@@ -467,6 +484,10 @@ class IBAlgoStrategy(object):
             unit_info["isLong"] = is_long
         if is_short:
             unit_info["isShort"] = is_short
+        if sl_size:
+            unit_info["slSize"] = sl_size
+        if base_exchange:
+            unit_info["baseExchange"] = base_exchange
         if long_entry:
             unit_info["longEntry"] = long_entry
         if short_entry:
@@ -484,6 +505,8 @@ class IBAlgoStrategy(object):
         unit_info["currentUnitSize"] = 0
         unit_info["isLong"] = ""
         unit_info["isShort"] = ""
+        unit_info["slSize"] = 0
+        unit_info["baseExchange"] = 0
         unit_info["longEntry"] = {
             "action": "",
             "orderType": "",
@@ -740,7 +763,11 @@ class IBAlgoStrategy(object):
 
 #####################################################
     def get_base_exchange(self, instrument):
-        """Get the exchange rate between currency and base"""
+        """Get the exchange rate between currency and base.
+        If trading:
+        GBP.JPY, will return GBP.USD
+        AUD.CAD, will return AUD.USD
+        EUR.USD, will return EUR.USD"""
         assert (instrument.localSymbol in ['GBP.JPY', 'AUD.CAD', 'EUR.USD']), \
                'Invalid Currency!'
 
@@ -750,50 +777,48 @@ class IBAlgoStrategy(object):
             if v.tag == 'AvailableFunds':
                 base = v.currency
 
-        if base == instrument.localSymbol[-3:]:
-            return 1
-        elif instrument.localSymbol[-3:] != 'USD':
-            pair = base + instrument.localSymbol[-3:]
+        symbol = instrument.localSymbol[-3:] if instrument.localSymbol[-3:] == 'JPY' else instrument.localSymbol[-7:-4]
+
+        if symbol == 'JPY':
+            pair = base + symbol
+            self.log("Getting current exchange rate for pair {}".format(pair))
             ticker = self.ib.reqMktData(contract=Forex(pair=pair,
                                                        symbol=base,
-                                                       currency=instrument
-                                                       .localSymbol[-3:]))
+                                                       currency=symbol))
             self.ib.sleep(1)
+            self.log("1 {} = {} USD".format(symbol, 1 / ticker.marketPrice()))
             return 1 / ticker.marketPrice()
-        elif instrument.localSymbol[-3:] == 'USD':
-            pair = instrument.localSymbol[-3:] + base
+        else:
+            pair = symbol + base
             self.log("Getting current exchange rate for pair {}".format(pair))
-
             ticker = self.ib.reqMktData(contract=Forex(pair=pair,
-                                                       symbol=instrument
-                                                       .localSymbol[-3:],
+                                                       symbol=symbol,
                                                        currency=base))
             self.ib.sleep(1)
+            self.log("1 {} = {} USD".format(symbol, ticker.marketPrice()))
             return ticker.marketPrice()
 
 #####################################################
-    def set_position_size(self, instrument,
-                          indicators, sl_size):
+    def set_position_size(self, instrument):
         """Sets position size in BASE based on available funds and volitility"""
-        position_size = 0
-
-        # Get position size in BASE
-        available_funds = self.get_available_funds()
-        equity_at_risk = available_funds * 0.005
-
-        base = ""
-
-        for v in self.ib.accountValues():
-            if v.tag == 'AvailableFunds':
-                base = v.currency
-
-        if base == instrument.localSymbol[-3:]:
-            position_size = round(equity_at_risk / sl_size)
-        else:
-            position_size = round((1 / self.get_base_exchange(instrument))
-                                  * equity_at_risk
-                                  / sl_size)
-
+        position_size = None
+        unit_info = (self.get_data_from_json()
+                     [instrument.localSymbol]["unitInfo"])
+        max_unit_size = unit_info["maxUnitSize"]
+        current_unit_size = unit_info["currentUnitSize"]
+        base_exchange = unit_info["baseExchange"]
+        sl_size = unit_info["slSize"]
+        local_symbol = instrument.localSymbol[:3] + instrument.localSymbol[4:]
+        ticker = self.ib.reqMktData(contract=Forex(pair=local_symbol,
+                                                   symbol=local_symbol[:3],
+                                                   currency=local_symbol[3:]))
+        self.ib.sleep(1)
+        exchange_rate = ticker.marketPrice()
+        position_size = round(min((max_unit_size - current_unit_size),
+                              (self.get_max_equity_at_risk()
+                              / base_exchange
+                              / sl_size
+                              / 4)))
         return position_size
 
 #####################################################
