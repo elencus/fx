@@ -83,6 +83,8 @@ class IBAlgoStrategy(object):
                 unit_full = False
 
             # Save unit info to json:
+            if not is_long and not is_short:
+                self.clear_unit_info_from_json(local_symbol)
             self.save_unit_info_to_json(local_symbol=local_symbol,
                                         max_unit_size=max_unit_size,
                                         current_unit_size=current_unit_size,
@@ -207,7 +209,7 @@ class IBAlgoStrategy(object):
                                          / max_entry_size)
                 assert (remaining_orders < 4), \
                     "Remaining orders in unit must be < 4!"
-                assert (remaining_orders > 0), \
+                assert (remaining_orders > 0, max_entry_size <= max_unit_size - current_unit_size), \
                     "Remaining orders in unit <= 0, \
                      but unit found to be not full!"
                 self.log("Found {} compound orders can be made \
@@ -262,7 +264,8 @@ class IBAlgoStrategy(object):
                                                    price_condition=exit_price_condition,
                                                    order_ref=exit_order_ref,
                                                    is_more=is_more)
-
+                    self.log("Created orders with order type {}".format(order_type))
+                    
                     oca = [sl_order, exit_order]
 
                     self.ib.oneCancelsAll(orders=oca,
@@ -286,11 +289,9 @@ class IBAlgoStrategy(object):
                     compound_order_json_tags.append("entryC")
                 elif remaining_orders == 3:
                     compound_order_json_tags.append("entryD")
-                for o in self.generate_compound_entry_info(instrument,
-                                                           compound_order_json_tags):
-                    # TODO: Save data to json
-                    pass
-                
+                self.generate_compound_entry_info(instrument,
+                                                  compound_order_json_tags)
+
                 self.log("Finished creating json data for compound orders.")
 
                 self.log("(10) Creating and placing compound orders")
@@ -328,7 +329,6 @@ class IBAlgoStrategy(object):
         assert (is_long is not is_short), \
             "Unit cannot be both long and short simultaneously!"
 
-        compound_orders = {}
         for r in compound_order_json_tags:
             assert (r in ["entryB", "entryC", "entryD"]), \
                 "Invalid compound order json tag!"
@@ -350,31 +350,28 @@ class IBAlgoStrategy(object):
             action = None
             is_more = None
             if is_long:
-                price_condition = last_entry["priceCondition"][0] \
+                price_condition = last_entry["priceCondition"] \
                     + offset * self.get_atr_multiple(instrument)
                 sl_price = price_condition - sl_size
                 action = "BUY"
                 is_more = True
             elif is_short:
-                price_condition = - last_entry["priceCondition"] \
+                price_condition = last_entry["priceCondition"] \
                     - offset * self.get_atr_multiple(instrument)
                 sl_price = price_condition + sl_size
                 action = "SELL"
                 is_more = False
-
-            compound_orders[r] = {
-                "action": action,
-                "orderType": "MKT",
-                "tif": "GTC",
-                "totalQuantity": total_quantity,
-                "transmit": False,
-                "priceCondition": price_condition,
-                "orderRef": instrument.localSymbol + r,
-                "isMore": is_more,
-                "slPrice": sl_price
-            }
-
-        return compound_orders
+            self.save_order_data_to_json(local_symbol=instrument.localSymbol,
+                                         order_json_tag=r,
+                                         action=action,
+                                         total_quantity=total_quantity,
+                                         order_ref=instrument.localSymbol + r,
+                                         sl_price=sl_price,
+                                         order_type='MKT',
+                                         tif='GTC',
+                                         transmit=False,
+                                         price_condition=price_condition,
+                                         is_more=is_more)
 
 #####################################################
     def generate_initial_entry_info(self, instrument):
@@ -431,12 +428,15 @@ class IBAlgoStrategy(object):
                                 order_type="MKT", tif="GTC", transmit=False,
                                 **kwargs):
         """Save passed information to json."""
-        price_condition = kwargs.get('price_condition', False),
+        price_condition = kwargs.get('price_condition', False)
         is_more = kwargs.get('is_more', False)
         assert (action in ["BUY", "SELL"]), "Invalid action passed."
         assert (total_quantity > 0), "Total quantity must be > 0."
         assert (sl_price > 0), "SL price must be > 0"
         assert (order_ref != ""), "Order reference cannot be blank."
+        if price_condition:
+            assert isinstance(price_condition, float), "Price condition must be a float."
+            assert price_condition > 0, "Price condition must be > 0."
 
         data_dict = self.get_data_from_json()
         assert (order_json_tag in data_dict[local_symbol]["entryInfo"]), \
@@ -452,8 +452,7 @@ class IBAlgoStrategy(object):
         order_info["orderRef"] = order_ref
         order_info["isMore"] = is_more
         order_info["slPrice"] = sl_price
-
-        data_dict[local_symbol][order_json_tag] = order_info
+        data_dict[local_symbol]["entryInfo"][order_json_tag] = order_info
         self.save_data_to_json(data_dict)
 
 #####################################################
@@ -675,7 +674,6 @@ class IBAlgoStrategy(object):
                     "sl_order": sl_order,
                     "exit_order": exit_order
                 }
-        self.log("ORDER TYPE WAS {}".format(order_type))
         return orders
 
 ####################################################
@@ -868,7 +866,7 @@ class IBAlgoStrategy(object):
                      tif="GTC",
                      total_quantity=0,
                      transmit=False,
-                     *args, **kwargs):
+                    **kwargs):
         """Places order with IBKR given relevant info.
         kwargs:
         bool is_more - True if price condition is >, False if <
