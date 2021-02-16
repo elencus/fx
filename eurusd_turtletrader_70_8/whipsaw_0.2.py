@@ -128,8 +128,8 @@ class IBAlgoStrategy(object):
                 self.log("Finished creating and placing initial entry orders \
                          for new {} unit".format(local_symbol))
 
-            elif not unit_full:
-                self.log("(3) Found open unit for {}. \
+            else:
+                self.log("(3) Found unit for {}. \
                          Recalculating exit all price for unit."
                          .format(local_symbol))
 
@@ -205,11 +205,12 @@ class IBAlgoStrategy(object):
                 self.log("max entry: {}".format(max_entry_size))
                 remaining_orders = round((max_unit_size - current_unit_size)
                                          / max_entry_size)
-                assert (remaining_orders < 4), \
-                    "Remaining orders in unit must be < 4!"
-                assert (remaining_orders > 0), \
-                    "Remaining orders in unit <= 0, \
-                     but unit found to be not full!"
+                if not unit_full:
+                    assert (remaining_orders < 4), \
+                        "Remaining orders in unit must be < 4!"
+                    assert (remaining_orders > 0), \
+                        "Remaining orders in unit <= 0, \
+                        but unit found to be not full!"
                 compound_order_json_tags = []
                 if remaining_orders == 3:
                     compound_order_json_tags.append("entryB")
@@ -350,32 +351,30 @@ class IBAlgoStrategy(object):
             offset = None
             if r == "entryB":
                 offset = 1
-                last_entry = unit_data["entryInfo"]["entryA"]
             elif r == "entryC":
                 offset = 2
-                last_entry = unit_data["entryInfo"]["entryB"]
             elif r == "entryD":
                 offset = 3
-                last_entry = unit_data["entryInfo"]["entryC"]
-            assert (offset is not None), \
-                "Offset cannot be set to None!"
+            initial_entry = unit_data["entryInfo"]["entryA"]
+            assert (offset is not None), "Offset cannot be set to None!"
 
             price_condition = None
             sl_price = None
             action = None
             is_more = None
             if is_long:
-                price_condition = last_entry["priceCondition"] \
+                price_condition = initial_entry["priceCondition"] \
                     + offset * self.get_atr_multiple(instrument)
                 sl_price = price_condition - sl_size
                 action = "BUY"
                 is_more = True
             elif is_short:
-                price_condition = - last_entry["priceCondition"] \
+                price_condition = - initial_entry["priceCondition"] \
                     - offset * self.get_atr_multiple(instrument)
                 sl_price = price_condition + sl_size
                 action = "SELL"
                 is_more = False
+            self.log("Set compound order price condition to {} and compound sl to {}".format(price_condition, sl_price))
 
             compound_orders[r] = {
                 "action": action,
