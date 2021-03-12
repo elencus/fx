@@ -203,7 +203,8 @@ class IBAlgoStrategy(object):
                 self.log("current unit: {}".format(current_unit_size))
                 self.log("max unit: {}".format(max_unit_size))
                 self.log("max entry: {}".format(max_entry_size))
-                remaining_orders = round((max_unit_size - current_unit_size)
+                remaining_orders = round((max_unit_size -
+                                         abs(current_unit_size))
                                          / max_entry_size)
                 if not unit_full:
                     assert (remaining_orders < 4), \
@@ -369,7 +370,7 @@ class IBAlgoStrategy(object):
                 action = "BUY"
                 is_more = True
             elif is_short:
-                price_condition = - initial_entry["priceCondition"] \
+                price_condition = initial_entry["priceCondition"] \
                     - offset * self.get_atr_multiple(instrument)
                 sl_price = price_condition + sl_size
                 action = "SELL"
